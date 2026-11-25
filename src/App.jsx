@@ -54,7 +54,6 @@ function PhotoSlot({
   const isText = slot?.type === 'text';
   const isPhoto = Boolean(slot && !isText);
 
-  // Sincroniza el HTML inicial del bloque de texto sin mover el cursor al escribir
   useEffect(() => {
     if (isText && !readOnly && editorRef.current) {
       if (editorRef.current.innerHTML !== (slot.content || '')) {
@@ -141,7 +140,6 @@ function PhotoSlot({
     onUpdateSlot({ style: nextStyle });
   };
 
-  // Aplica negrita o cursiva a la selección actual (o a todo el texto si no hay selección)
   const applyTextFormat = (e, command) => {
     e.preventDefault();
     e.stopPropagation();
@@ -313,7 +311,6 @@ function Book3DModal({ coverPage, albumTitle, format, pageCount, onClose }) {
   const coverSlot = coverPage.slots[0];
   const filterObj = FILTERS.find((f) => f.id === (coverSlot?.filter || 'none')) || FILTERS[0];
 
-  // El grosor del libro crece según la cantidad de páginas (mínimo 28px, máximo 64px)
   const depth = Math.min(64, Math.max(28, 22 + pageCount * 3));
 
   useEffect(() => {
@@ -406,7 +403,6 @@ function Book3DModal({ coverPage, albumTitle, format, pageCount, onClose }) {
                 transform: `rotateX(${rot.x}deg) rotateY(${rot.y}deg)`,
               }}
           >
-            {/* Tapa Frontal (Portada) */}
             <div
                 className="book-face book-front"
                 style={{ backgroundColor: theme.color, color: theme.text }}
@@ -437,7 +433,6 @@ function Book3DModal({ coverPage, albumTitle, format, pageCount, onClose }) {
               </div>
             </div>
 
-            {/* Contraportada */}
             <div
                 className="book-face book-back"
                 style={{ backgroundColor: theme.color, color: theme.text }}
@@ -445,7 +440,6 @@ function Book3DModal({ coverPage, albumTitle, format, pageCount, onClose }) {
               <span className="back-colophon">OURPHOTOS EDITION</span>
             </div>
 
-            {/* Lomo (Izquierda) */}
             <div
                 className="book-face book-spine"
                 style={{ backgroundColor: theme.spine, color: theme.text }}
@@ -453,7 +447,6 @@ function Book3DModal({ coverPage, albumTitle, format, pageCount, onClose }) {
               <span>{coverPage.coverTitle || albumTitle}</span>
             </div>
 
-            {/* Cantos de hojas (Derecha, Arriba, Abajo) */}
             <div className="book-face book-pages-right" />
             <div className="book-face book-pages-top" />
             <div className="book-face book-pages-bottom" />
@@ -464,11 +457,10 @@ function Book3DModal({ coverPage, albumTitle, format, pageCount, onClose }) {
 }
 
 /* VISOR 3D PÁGINA POR PÁGINA (FLIPBOOK) */
-function Flipbook3DModal({ pages, albumTitle, format, borderless, gapSize, onClose }) {
+function Flipbook3DModal({ pages, albumTitle, format, gapSize, onClose }) {
   const [flippedCount, setFlippedCount] = useState(0);
   const fmt = FORMATS[format];
 
-  // Agrupamos las páginas en hojas físicas (frente y reverso)
   const leaves = useMemo(() => {
     const result = [];
     for (let i = 0; i < pages.length; i += 2) {
@@ -477,7 +469,6 @@ function Flipbook3DModal({ pages, albumTitle, format, borderless, gapSize, onClo
         back: pages[i + 1] || null,
       });
     }
-    // Si el último reverso ya tiene una foto, agregamos una hoja final para la contraportada
     if (result.length > 0 && result[result.length - 1].back !== null) {
       result.push({ front: null, back: 'BACK_COVER' });
     } else if (result.length > 0) {
@@ -545,18 +536,18 @@ function Flipbook3DModal({ pages, albumTitle, format, borderless, gapSize, onClo
 
     return (
         <div
-            className={`flip-sheet ${borderless ? 'borderless' : ''}`}
+            className={`flip-sheet ${page.borderless ? 'borderless' : ''}`}
             style={{ backgroundColor: theme.color, color: theme.text }}
         >
           <div
               className={`sheet-grid ${LAYOUTS[page.layout].className}`}
-              style={{ gap: borderless ? 0 : `${Math.max(4, gapSize * 0.6)}px` }}
+              style={{ gap: page.borderless ? 0 : `${Math.max(4, gapSize * 0.6)}px` }}
           >
             {page.slots.map((slot, idx) => (
                 <PhotoSlot key={idx} slot={slot} slotIdx={idx} readOnly />
             ))}
           </div>
-          {!borderless && page.showCaption && (
+          {!page.borderless && page.showCaption && (
               <div className="page-caption readonly-caption" style={{ fontSize: '0.72rem' }}>
                 {page.caption || '\u00A0'}
               </div>
@@ -565,7 +556,6 @@ function Flipbook3DModal({ pages, albumTitle, format, borderless, gapSize, onClo
     );
   };
 
-  // Centra el libro cuando está cerrado (portada o contraportada) o abierto en el lomo
   const shiftX =
       flippedCount === 0 ? '0%' : flippedCount === leaves.length ? '100%' : '50%';
 
@@ -664,12 +654,10 @@ export default function App() {
   const [hideUsed, setHideUsed] = useState(false);
   const [previewMode, setPreviewMode] = useState(false);
   const [preview3D, setPreview3D] = useState(false);
-  const [previewIndex, setPreviewIndex] = useState(0);
 
   const [photos, setPhotos] = useState([]);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
 
-  // El primer elemento es siempre la Portada
   const [pages, setPages] = useState([
     {
       id: 'cover',
@@ -680,13 +668,21 @@ export default function App() {
       coverSubtitle: 'Colección 2026',
       bg: 'dark',
     },
-    { id: 1, isCover: false, layout: 2, slots: [null, null], caption: '', showCaption: false, bg: 'white' },
+    {
+      id: 1,
+      isCover: false,
+      layout: 2,
+      slots: [null, null],
+      caption: '',
+      showCaption: false,
+      borderless: false,
+      bg: 'white',
+    },
   ]);
   const [activePageId, setActivePageId] = useState('cover');
 
   const coverPage = pages[0];
   const activePage = pages.find((p) => p.id === activePageId) || pages[0];
-  const activePageIndex = pages.findIndex((p) => p.id === activePage.id);
 
   const usedUrls = useMemo(() => {
     const set = new Set();
@@ -695,17 +691,6 @@ export default function App() {
   }, [pages]);
 
   const visiblePhotos = hideUsed ? photos.filter((p) => !usedUrls.has(p.url)) : photos;
-
-  useEffect(() => {
-    if (!previewMode) return;
-    const handleKey = (e) => {
-      if (e.key === 'Escape') setPreviewMode(false);
-      if (e.key === 'ArrowRight') setPreviewIndex((i) => Math.min(pages.length - 1, i + 1));
-      if (e.key === 'ArrowLeft') setPreviewIndex((i) => Math.max(0, i - 1));
-    };
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [previewMode, pages.length]);
 
   const handleUpload = (e) => {
     const files = Array.from(e.target.files);
@@ -726,7 +711,6 @@ export default function App() {
     if (selectedPhoto === photoToDelete.url) {
       setSelectedPhoto(null);
     }
-    // También la quita de cualquier hoja donde ya estuviera colocada
     setPages((prev) =>
         prev.map((page) => ({
           ...page,
@@ -748,6 +732,7 @@ export default function App() {
         slots: Array(slotCount).fill(null),
         caption: '',
         showCaption: false,
+        borderless,
         bg: 'white',
       },
     ]);
@@ -778,6 +763,13 @@ export default function App() {
 
   const changePageField = (pageId, field, value) => {
     setPages((prev) => prev.map((p) => (p.id === pageId ? { ...p, [field]: value } : p)));
+  };
+
+  const toggleAllBorderless = (checked) => {
+    setBorderless(checked);
+    setPages((prev) =>
+        prev.map((p) => (p.isCover ? p : { ...p, borderless: checked }))
+    );
   };
 
   const placePhoto = (pageId, slotIndex, url) => {
@@ -832,7 +824,6 @@ export default function App() {
     let remainingPhotos = [...unused];
     let updatedCover = pages[0];
 
-    // Si la portada está vacía, asignamos la primera foto
     if (!updatedCover.slots[0] && remainingPhotos.length > 0) {
       const first = remainingPhotos.shift();
       updatedCover = {
@@ -860,6 +851,7 @@ export default function App() {
         })),
         caption: '',
         showCaption: false,
+        borderless,
         bg: 'white',
       });
       i += layout;
@@ -914,16 +906,16 @@ export default function App() {
                 ))}
               </select>
 
-              <label className="studio-toggle">
+              <label className="studio-toggle" title="Aplicar a todas las hojas">
                 <input
                     type="checkbox"
                     checked={borderless}
-                    onChange={(e) => setBorderless(e.target.checked)}
+                    onChange={(e) => toggleAllBorderless(e.target.checked)}
                 />
-                <span>Sin márgenes</span>
+                <span>Sin márgenes (todas)</span>
               </label>
 
-              {!borderless && (
+              {!activePage.borderless && (
                   <div className="gap-control" title="Espaciado entre fotos">
                     <span>Espacio</span>
                     <input
@@ -941,13 +933,7 @@ export default function App() {
               <button className="btn ghost" onClick={() => setPreview3D(true)}>
                 Vista 3D 360°
               </button>
-              <button
-                  className="btn ghost"
-                  onClick={() => {
-                    setPreviewIndex(activePageIndex);
-                    setPreviewMode(true);
-                  }}
-              >
+              <button className="btn ghost" onClick={() => setPreviewMode(true)}>
                 Vista Previa
               </button>
               <button className="btn primary" onClick={() => window.print()}>
@@ -1042,17 +1028,32 @@ export default function App() {
                 )}
 
                 <div className="bg-pills">
-                  {!activePage.isCover && !borderless && (
-                      <label className="studio-toggle" style={{ marginRight: 10 }}>
-                        <input
-                            type="checkbox"
-                            checked={Boolean(activePage.showCaption)}
-                            onChange={(e) =>
-                                changePageField(activePage.id, 'showCaption', e.target.checked)
-                            }
-                        />
-                        <span>Pie de página</span>
-                      </label>
+                  {!activePage.isCover && (
+                      <>
+                        <label className="studio-toggle" style={{ marginRight: 10 }}>
+                          <input
+                              type="checkbox"
+                              checked={Boolean(activePage.borderless)}
+                              onChange={(e) =>
+                                  changePageField(activePage.id, 'borderless', e.target.checked)
+                              }
+                          />
+                          <span>Sin márgenes</span>
+                        </label>
+
+                        {!activePage.borderless && (
+                            <label className="studio-toggle" style={{ marginRight: 10 }}>
+                              <input
+                                  type="checkbox"
+                                  checked={Boolean(activePage.showCaption)}
+                                  onChange={(e) =>
+                                      changePageField(activePage.id, 'showCaption', e.target.checked)
+                                  }
+                              />
+                              <span>Pie de página</span>
+                            </label>
+                        )}
+                      </>
                   )}
                   <span className="toolbar-label">{activePage.isCover ? 'Tapa:' : 'Papel:'}</span>
                   {BG_THEMES.map((theme) => (
@@ -1111,7 +1112,7 @@ export default function App() {
                 ) : (
                     /* LIENZO DE HOJA INTERIOR */
                     <div
-                        className={`sheet ${borderless ? 'borderless' : ''}`}
+                        className={`sheet ${activePage.borderless ? 'borderless' : ''}`}
                         style={{
                           aspectRatio: FORMATS[format].ratio,
                           backgroundColor: currentTheme.color,
@@ -1120,23 +1121,23 @@ export default function App() {
                     >
                       <div
                           className={`sheet-grid ${LAYOUTS[activePage.layout].className}`}
-                          style={{ gap: borderless ? 0 : `${gapSize}px` }}
+                          style={{ gap: activePage.borderless ? 0 : `${gapSize}px` }}
                       >
                         {activePage.slots.map((slot, slotIdx) => (
                             <PhotoSlot
-                                key={slotIdx}
+                                key={`${activePage.id}-${slotIdx}`}
                                 slot={slot}
                                 slotIdx={slotIdx}
                                 selectedPhoto={selectedPhoto}
                                 onPlacePhoto={(url) => placePhoto(activePage.id, slotIdx, url)}
-                                onPlaceText={() => placeText(activePage.id, slotIdx)}   // <--- SOLO AGREGA ESTA LÍNEA AQUÍ
+                                onPlaceText={() => placeText(activePage.id, slotIdx)}
                                 onClearPhoto={() => clearSlot(activePage.id, slotIdx)}
                                 onUpdateSlot={(patch) => updateSlot(activePage.id, slotIdx, patch)}
                             />
                         ))}
                       </div>
 
-                      {!borderless && activePage.showCaption && (
+                      {!activePage.borderless && activePage.showCaption && (
                           <input
                               type="text"
                               className="page-caption"
@@ -1173,7 +1174,7 @@ export default function App() {
                         <div className={`mini-grid ${LAYOUTS[page.layout].className}`}>
                           {page.slots.map((s, idx) => (
                               <div key={idx} className="mini-slot">
-                                {s && <img src={s.url} alt="" />}
+                                {s && (s.type === 'text' ? <span className="mini-text-icon">T</span> : <img src={s.url} alt="" />)}
                               </div>
                           ))}
                         </div>
@@ -1222,7 +1223,6 @@ export default function App() {
                 pages={pages}
                 albumTitle={albumTitle}
                 format={format}
-                borderless={borderless}
                 gapSize={gapSize}
                 onClose={() => setPreviewMode(false)}
             />
@@ -1257,18 +1257,22 @@ export default function App() {
             return (
                 <div key={page.id} className="print-page-break">
                   <div
-                      className={`sheet print-sheet ${borderless ? 'borderless' : ''}`}
-                      style={{ backgroundColor: theme.color, color: theme.text }}
+                      className={`sheet print-sheet ${page.borderless ? 'borderless' : ''}`}
+                      style={{
+                        aspectRatio: FORMATS[format].ratio,
+                        backgroundColor: theme.color,
+                        color: theme.text,
+                      }}
                   >
                     <div
                         className={`sheet-grid ${LAYOUTS[page.layout].className}`}
-                        style={{ gap: borderless ? 0 : `${gapSize}px` }}
+                        style={{ gap: page.borderless ? 0 : `${gapSize}px` }}
                     >
                       {page.slots.map((slot, idx) => (
                           <PhotoSlot key={idx} slot={slot} slotIdx={idx} readOnly />
                       ))}
                     </div>
-                    {!borderless && (
+                    {!page.borderless && page.showCaption && (
                         <div className="page-caption readonly-caption">{page.caption || '\u00A0'}</div>
                     )}
                   </div>

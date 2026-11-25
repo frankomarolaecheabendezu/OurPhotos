@@ -35,6 +35,40 @@ const TEXT_STYLES = [
   { id: 'minimal', label: 'Minimal', className: 'text-style-minimal' },
 ];
 
+const COVER_STYLES = [
+  { id: 'classic', label: 'Clásica' },
+  { id: 'split', label: 'Dividida' },
+  { id: 'overlay', label: 'Superpuesta' },
+  { id: 'window-v', label: 'Ventana V' },
+  { id: 'square', label: 'Cuadrada' },
+  { id: 'window-h', label: 'Panorámica' },
+  { id: 'top-script', label: 'Cielo' },
+  { id: 'editorial-2', label: 'Editorial 2' },
+  { id: 'magazine', label: 'Revista' },
+];
+
+const FONT_FAMILIES = [
+  { id: 'default', label: 'Fuente: Auto', css: undefined },
+  { id: 'sans', label: 'Moderna (Sans)', css: "'Inter', system-ui, sans-serif" },
+  { id: 'serif', label: 'Editorial (Garamond)', css: "'Cormorant Garamond', Georgia, serif" },
+  { id: 'playfair', label: 'Clásica (Playfair)', css: "'Playfair Display', Georgia, serif" },
+  { id: 'script', label: 'Caligráfica (Brush)', css: "'Alex Brush', cursive" },
+  { id: 'mono', label: 'Minimal (Mono)', css: "'Courier New', monospace" },
+];
+
+// Extrae dos iniciales del título para el panel derecho del estilo "Editorial 2"
+function getMonogramLetters(title) {
+  const clean = (title || 'A & R').replace(/[^a-zA-ZÁÉÍÓÚÑáéíóúñ\s]/g, ' ').trim();
+  const words = clean.split(/\s+/).filter(Boolean);
+  if (words.length >= 2) {
+    return [words[0][0].toUpperCase(), words[words.length - 1][0].toUpperCase()];
+  }
+  if (words.length === 1 && words[0].length >= 2) {
+    return [words[0][0].toUpperCase(), words[0][1].toUpperCase()];
+  }
+  return ['O', 'P'];
+}
+
 function PhotoSlot({
                      slot,
                      slotIdx,
@@ -161,6 +195,7 @@ function PhotoSlot({
 
   const activeFilterObj = FILTERS.find((f) => f.id === (slot?.filter || 'none')) || FILTERS[0];
   const activeTextStyle = TEXT_STYLES.find((t) => t.id === (slot?.style || 'quote')) || TEXT_STYLES[0];
+  const activeFontObj = FONT_FAMILIES.find((f) => f.id === (slot?.font || 'default')) || FONT_FAMILIES[0];
 
   return (
       <div
@@ -190,9 +225,13 @@ function PhotoSlot({
                   draggable={false}
                   style={{
                     objectPosition: `${slot.x}% ${slot.y}%`,
-                    transform: `scale(${slot.scale})`,
-                    transformOrigin: `${slot.x}% ${slot.y}%`,
-                    filter: activeFilterObj.css,
+                    ...(slot.scale > 1 && {
+                      transform: `scale(${slot.scale})`,
+                      transformOrigin: `${slot.x}% ${slot.y}%`,
+                    }),
+                    ...(activeFilterObj.id !== 'none' && {
+                      filter: activeFilterObj.css,
+                    }),
                   }}
               />
               {!readOnly && (
@@ -223,6 +262,7 @@ function PhotoSlot({
               {readOnly ? (
                   <div
                       className={`slot-text-display ${activeTextStyle.className}`}
+                      style={{ fontFamily: activeFontObj.css }}
                       dangerouslySetInnerHTML={{ __html: slot.content || '' }}
                   />
               ) : (
@@ -231,6 +271,7 @@ function PhotoSlot({
                       contentEditable
                       suppressContentEditableWarning
                       className={`slot-rich-editor ${activeTextStyle.className}`}
+                      style={{ fontFamily: activeFontObj.css }}
                       data-placeholder="Escribe tu texto aquí..."
                       onInput={(e) => onUpdateSlot({ content: e.currentTarget.innerHTML })}
                   />
@@ -254,10 +295,23 @@ function PhotoSlot({
                     <button
                         className="slot-action-btn"
                         onMouseDown={cycleTextStyle}
-                        title="Cambiar tipografía (Cita / Título / Historia / Minimal)"
+                        title="Cambiar estilo (Cita / Título / Historia / Minimal)"
                     >
                       {activeTextStyle.label}
                     </button>
+                    <select
+                        className="slot-font-select"
+                        value={slot.font || 'default'}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => onUpdateSlot({ font: e.target.value })}
+                        title="Cambiar tipografía"
+                    >
+                      {FONT_FAMILIES.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.label}
+                          </option>
+                      ))}
+                    </select>
                     <button
                         className="slot-action-btn danger"
                         onClick={(e) => {
@@ -301,15 +355,14 @@ function PhotoSlot({
 }
 
 /* VISOR 3D 360° TIPO LIBRO */
-function Book3DModal({ coverPage, albumTitle, format, pageCount, onClose }) {
+function Book3DModal({ coverPage, backCoverPage, albumTitle, format, pageCount, onClose }) {
   const [rot, setRot] = useState({ x: -12, y: -28 });
   const [autoSpin, setAutoSpin] = useState(false);
   const dragRef = useRef(null);
 
   const fmt = FORMATS[format];
-  const theme = BG_THEMES.find((t) => t.id === coverPage.bg) || BG_THEMES[3];
-  const coverSlot = coverPage.slots[0];
-  const filterObj = FILTERS.find((f) => f.id === (coverSlot?.filter || 'none')) || FILTERS[0];
+  const frontTheme = BG_THEMES.find((t) => t.id === coverPage.bg) || BG_THEMES[3];
+  const backTheme = BG_THEMES.find((t) => t.id === backCoverPage.bg) || BG_THEMES[3];
 
   const depth = Math.min(64, Math.max(28, 22 + pageCount * 3));
 
@@ -353,6 +406,72 @@ function Book3DModal({ coverPage, albumTitle, format, pageCount, onClose }) {
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
     dragRef.current = null;
+  };
+
+  const render3DCoverFace = (page, isBack = false) => {
+    const styleId = page.coverStyle || 'classic';
+    const isEditorial2 = styleId === 'editorial-2';
+    const slotsToRender = isEditorial2 ? [page.slots[0], page.slots[1] || null] : [page.slots[0]];
+    const hasPhoto = slotsToRender.some(Boolean);
+    const hasText = page.showCoverText && Boolean(page.coverTitle || page.coverSubtitle);
+    const coverFontCss = FONT_FAMILIES.find((f) => f.id === (page.coverFont || 'default'))?.css;
+
+    if (isBack && !hasPhoto && !hasText) {
+      return <span className="back-colophon">OURPHOTOS EDITION</span>;
+    }
+
+    const [m1, m2] = getMonogramLetters(page.coverTitle || albumTitle);
+
+    return (
+        <div
+            className={`book-front-inner cover-style-${styleId} ${page.borderless ? 'borderless' : ''}`}
+        >
+          <div className={`book-cover-photo ${isEditorial2 ? 'editorial-2-photos' : ''}`}>
+            {slotsToRender.map((slot, idx) => {
+              const filterObj = FILTERS.find((f) => f.id === (slot?.filter || 'none')) || FILTERS[0];
+              return (
+                  <div key={idx} className="book-cover-photo-item">
+                    {slot ? (
+                        <img
+                            src={slot.url}
+                            alt={isBack ? 'Contraportada' : 'Portada'}
+                            draggable={false}
+                            style={{
+                              objectPosition: `${slot.x}% ${slot.y}%`,
+                              transform: `scale(${slot.scale})`,
+                              transformOrigin: `${slot.x}% ${slot.y}%`,
+                              filter: filterObj.css,
+                            }}
+                        />
+                    ) : (
+                        <div className="book-empty-cover">Sin foto</div>
+                    )}
+                  </div>
+              );
+            })}
+          </div>
+
+          {hasText && (
+              <div className="book-cover-texts">
+                {page.coverTitle && <h3 style={{ fontFamily: coverFontCss }}>{page.coverTitle}</h3>}
+                {page.coverSubtitle && <p style={{ fontFamily: coverFontCss }}>{page.coverSubtitle}</p>}
+              </div>
+          )}
+
+          {isEditorial2 && (
+              <div className="editorial-2-aside">
+                <div className="editorial-monogram">
+                  <span className="mono-top">{m1}</span>
+                  <span className="mono-line" />
+                  <span className="mono-bottom">{m2}</span>
+                </div>
+                {page.showCoverText && page.coverSubtitle && (
+                    <span className="editorial-vertical-date">{page.coverSubtitle}</span>
+                )}
+              </div>
+          )}
+        </div>
+    );
   };
 
   return (
@@ -405,46 +524,24 @@ function Book3DModal({ coverPage, albumTitle, format, pageCount, onClose }) {
           >
             <div
                 className="book-face book-front"
-                style={{ backgroundColor: theme.color, color: theme.text }}
+                style={{ backgroundColor: frontTheme.color, color: frontTheme.text }}
             >
               <div className="book-crease" />
-              <div className="book-front-inner">
-                <div className="book-cover-photo">
-                  {coverSlot ? (
-                      <img
-                          src={coverSlot.url}
-                          alt="Portada"
-                          draggable={false}
-                          style={{
-                            objectPosition: `${coverSlot.x}% ${coverSlot.y}%`,
-                            transform: `scale(${coverSlot.scale})`,
-                            transformOrigin: `${coverSlot.x}% ${coverSlot.y}%`,
-                            filter: filterObj.css,
-                          }}
-                      />
-                  ) : (
-                      <div className="book-empty-cover">Sin foto de portada</div>
-                  )}
-                </div>
-                <div className="book-cover-texts">
-                  <h3>{coverPage.coverTitle || albumTitle}</h3>
-                  {coverPage.coverSubtitle && <p>{coverPage.coverSubtitle}</p>}
-                </div>
-              </div>
+              {render3DCoverFace(coverPage, false)}
             </div>
 
             <div
                 className="book-face book-back"
-                style={{ backgroundColor: theme.color, color: theme.text }}
+                style={{ backgroundColor: backTheme.color, color: backTheme.text }}
             >
-              <span className="back-colophon">OURPHOTOS EDITION</span>
+              {render3DCoverFace(backCoverPage, true)}
             </div>
 
             <div
                 className="book-face book-spine"
-                style={{ backgroundColor: theme.spine, color: theme.text }}
+                style={{ backgroundColor: frontTheme.spine, color: frontTheme.text }}
             >
-              <span>{coverPage.coverTitle || albumTitle}</span>
+              <span>{coverPage.showCoverText ? coverPage.coverTitle || albumTitle : ''}</span>
             </div>
 
             <div className="book-face book-pages-right" />
@@ -462,17 +559,20 @@ function Flipbook3DModal({ pages, albumTitle, format, gapSize, onClose }) {
   const fmt = FORMATS[format];
 
   const leaves = useMemo(() => {
+    const backCover = pages.find((p) => p.isBackCover);
+    const contentPages = pages.filter((p) => !p.isBackCover);
+
     const result = [];
-    for (let i = 0; i < pages.length; i += 2) {
+    for (let i = 0; i < contentPages.length; i += 2) {
       result.push({
-        front: pages[i],
-        back: pages[i + 1] || null,
+        front: contentPages[i],
+        back: contentPages[i + 1] || null,
       });
     }
     if (result.length > 0 && result[result.length - 1].back !== null) {
-      result.push({ front: null, back: 'BACK_COVER' });
+      result.push({ front: null, back: backCover || 'BACK_COVER' });
     } else if (result.length > 0) {
-      result[result.length - 1].back = 'BACK_COVER';
+      result[result.length - 1].back = backCover || 'BACK_COVER';
     }
     return result;
   }, [pages]);
@@ -511,25 +611,71 @@ function Flipbook3DModal({ pages, albumTitle, format, gapSize, onClose }) {
 
     const theme = BG_THEMES.find((t) => t.id === page.bg) || BG_THEMES[0];
 
-    if (page.isCover) {
+    if (page.isCover || page.isBackCover) {
+      const styleId = page.coverStyle || 'classic';
+      const isEditorial2 = styleId === 'editorial-2';
+      const hasPhoto = page.slots.some(Boolean);
+      const hasText = page.showCoverText && Boolean(page.coverTitle || page.coverSubtitle);
+      const coverFontCss = FONT_FAMILIES.find((f) => f.id === (page.coverFont || 'default'))?.css;
+
+      if (page.isBackCover && !hasPhoto && !hasText) {
+        return (
+            <div
+                className="flip-sheet back-cover-face"
+                style={{ backgroundColor: theme.color, color: theme.text }}
+            >
+              <span className="back-colophon">OURPHOTOS EDITION</span>
+            </div>
+        );
+      }
+
+      const [m1, m2] = getMonogramLetters(page.coverTitle || albumTitle);
+
       return (
           <div
-              className="flip-sheet cover-sheet"
+              className={`flip-sheet cover-sheet cover-style-${styleId} ${
+                  page.borderless ? 'borderless' : ''
+              }`}
               style={{ backgroundColor: theme.color, color: theme.text }}
           >
-            <div className="cover-photo-wrap">
-              <PhotoSlot slot={page.slots[0]} slotIdx={0} readOnly />
-            </div>
-            <div className="cover-meta-inputs">
-              <div className="cover-title-input" style={{ color: theme.text, fontSize: '1.05rem' }}>
-                {page.coverTitle || albumTitle}
-              </div>
-              {page.coverSubtitle && (
-                  <div className="cover-subtitle-input" style={{ color: theme.text, fontSize: '0.72rem' }}>
-                    {page.coverSubtitle}
+            {(!page.isBackCover || hasPhoto) && (
+                <div className={`cover-photo-wrap ${isEditorial2 ? 'editorial-2-photos' : ''}`}>
+                  <PhotoSlot slot={page.slots[0]} slotIdx={0} readOnly />
+                  {isEditorial2 && <PhotoSlot slot={page.slots[1] || null} slotIdx={1} readOnly />}
+                </div>
+            )}
+            {hasText && (
+                <div className="cover-meta-inputs">
+                  {page.coverTitle && (
+                      <div
+                          className="cover-title-input"
+                          style={{ color: theme.text, fontFamily: coverFontCss }}
+                      >
+                        {page.coverTitle}
+                      </div>
+                  )}
+                  {page.coverSubtitle && (
+                      <div
+                          className="cover-subtitle-input"
+                          style={{ color: theme.text, fontFamily: coverFontCss }}
+                      >
+                        {page.coverSubtitle}
+                      </div>
+                  )}
+                </div>
+            )}
+            {isEditorial2 && (
+                <div className="editorial-2-aside">
+                  <div className="editorial-monogram">
+                    <span className="mono-top">{m1}</span>
+                    <span className="mono-line" />
+                    <span className="mono-bottom">{m2}</span>
                   </div>
-              )}
-            </div>
+                  {page.showCoverText && page.coverSubtitle && (
+                      <span className="editorial-vertical-date">{page.coverSubtitle}</span>
+                  )}
+                </div>
+            )}
           </div>
       );
     }
@@ -666,6 +812,10 @@ export default function App() {
       slots: [null],
       coverTitle: 'MI PHOTOBOOK',
       coverSubtitle: 'Colección 2026',
+      coverStyle: 'classic',
+      coverFont: 'default',
+      showCoverText: true,
+      borderless: false,
       bg: 'dark',
     },
     {
@@ -678,11 +828,27 @@ export default function App() {
       borderless: false,
       bg: 'white',
     },
+    {
+      id: 'back-cover',
+      isBackCover: true,
+      layout: 1,
+      slots: [null],
+      coverTitle: '',
+      coverSubtitle: 'OURPHOTOS EDITION',
+      coverStyle: 'classic',
+      coverFont: 'default',
+      showCoverText: true,
+      borderless: false,
+      bg: 'dark',
+    },
   ]);
   const [activePageId, setActivePageId] = useState('cover');
 
-  const coverPage = pages[0];
+  const coverPage = pages.find((p) => p.isCover) || pages[0];
+  const backCoverPage = pages.find((p) => p.isBackCover) || pages[pages.length - 1];
   const activePage = pages.find((p) => p.id === activePageId) || pages[0];
+  const isCoverLike = Boolean(activePage.isCover || activePage.isBackCover);
+  const interiorCount = pages.filter((p) => !p.isCover && !p.isBackCover).length;
 
   const usedUrls = useMemo(() => {
     const set = new Set();
@@ -723,25 +889,27 @@ export default function App() {
   const addPage = (layout = 2) => {
     const nextId = Date.now() + Math.random();
     const slotCount = LAYOUTS[layout].slots;
-    setPages((prev) => [
-      ...prev,
-      {
-        id: nextId,
-        isCover: false,
-        layout,
-        slots: Array(slotCount).fill(null),
-        caption: '',
-        showCaption: false,
-        borderless,
-        bg: 'white',
-      },
-    ]);
+    const newPage = {
+      id: nextId,
+      isCover: false,
+      layout,
+      slots: Array(slotCount).fill(null),
+      caption: '',
+      showCaption: false,
+      borderless,
+      bg: 'white',
+    };
+    setPages((prev) => {
+      const back = prev.find((p) => p.isBackCover);
+      const withoutBack = prev.filter((p) => !p.isBackCover);
+      return back ? [...withoutBack, newPage, back] : [...prev, newPage];
+    });
     setActivePageId(nextId);
   };
 
   const deletePage = (pageId) => {
     const target = pages.find((p) => p.id === pageId);
-    if (!target || target.isCover || pages.length <= 2) return;
+    if (!target || target.isCover || target.isBackCover || interiorCount <= 1) return;
     const idx = pages.findIndex((p) => p.id === pageId);
     const remaining = pages.filter((p) => p.id !== pageId);
     setPages(remaining);
@@ -754,7 +922,7 @@ export default function App() {
     const slotCount = LAYOUTS[newLayout].slots;
     setPages((prev) =>
         prev.map((page) => {
-          if (page.id !== pageId || page.isCover) return page;
+          if (page.id !== pageId || page.isCover || page.isBackCover) return page;
           const updatedSlots = Array.from({ length: slotCount }, (_, i) => page.slots[i] || null);
           return { ...page, layout: newLayout, slots: updatedSlots };
         })
@@ -762,13 +930,21 @@ export default function App() {
   };
 
   const changePageField = (pageId, field, value) => {
-    setPages((prev) => prev.map((p) => (p.id === pageId ? { ...p, [field]: value } : p)));
+    setPages((prev) =>
+        prev.map((p) => {
+          if (p.id !== pageId) return p;
+          if (field === 'coverStyle' && value === 'editorial-2' && p.slots.length < 2) {
+            return { ...p, [field]: value, slots: [p.slots[0] || null, null] };
+          }
+          return { ...p, [field]: value };
+        })
+    );
   };
 
   const toggleAllBorderless = (checked) => {
     setBorderless(checked);
     setPages((prev) =>
-        prev.map((p) => (p.isCover ? p : { ...p, borderless: checked }))
+        prev.map((p) => (p.isCover || p.isBackCover ? p : { ...p, borderless: checked }))
     );
   };
 
@@ -788,7 +964,7 @@ export default function App() {
         prev.map((page) => {
           if (page.id !== pageId) return page;
           const updatedSlots = [...page.slots];
-          updatedSlots[slotIndex] = { type: 'text', content: '', style: 'quote' };
+          updatedSlots[slotIndex] = { type: 'text', content: '', style: 'quote', font: 'default' };
           return { ...page, slots: updatedSlots };
         })
     );
@@ -822,13 +998,16 @@ export default function App() {
     if (unused.length === 0) return;
 
     let remainingPhotos = [...unused];
-    let updatedCover = pages[0];
+    let updatedCover = coverPage;
 
     if (!updatedCover.slots[0] && remainingPhotos.length > 0) {
       const first = remainingPhotos.shift();
       updatedCover = {
         ...updatedCover,
-        slots: [{ url: first.url, x: 50, y: 50, scale: 1, filter: 'none' }],
+        slots: [
+          { url: first.url, x: 50, y: 50, scale: 1, filter: 'none' },
+          ...updatedCover.slots.slice(1),
+        ],
       };
     }
 
@@ -857,20 +1036,26 @@ export default function App() {
       i += layout;
     }
 
-    const interiorPages = pages.slice(1);
+    const interiorPages = pages.filter((p) => !p.isCover && !p.isBackCover);
     const isSingleEmptyInterior =
         interiorPages.length === 1 && interiorPages[0].slots.every((s) => s === null);
 
     if (isSingleEmptyInterior && newPages.length > 0) {
-      setPages([updatedCover, ...newPages]);
+      setPages([updatedCover, ...newPages, backCoverPage]);
       setActivePageId(newPages[0].id);
     } else {
-      setPages([updatedCover, ...interiorPages, ...newPages]);
+      setPages([updatedCover, ...interiorPages, ...newPages, backCoverPage]);
       if (newPages.length > 0) setActivePageId(newPages[0].id);
     }
   };
 
   const currentTheme = BG_THEMES.find((t) => t.id === activePage.bg) || BG_THEMES[0];
+  const activeCoverStyle = activePage.coverStyle || 'classic';
+  const activeCoverFontCss = FONT_FAMILIES.find(
+      (f) => f.id === (activePage.coverFont || 'default')
+  )?.css;
+  const isActiveEditorial2 = isCoverLike && activeCoverStyle === 'editorial-2';
+  const [activeM1, activeM2] = getMonogramLetters(activePage.coverTitle || albumTitle);
 
   return (
       <>
@@ -887,7 +1072,7 @@ export default function App() {
                     placeholder="Nombre del álbum..."
                 />
                 <span className="subtitle">
-                Portada + {pages.length - 1} {pages.length - 1 === 1 ? 'hoja' : 'hojas'} ·{' '}
+                Portada + {interiorCount} {interiorCount === 1 ? 'hoja' : 'hojas'} + Contraportada ·{' '}
                   {usedUrls.size}/{photos.length} fotos usadas
               </span>
               </div>
@@ -906,7 +1091,7 @@ export default function App() {
                 ))}
               </select>
 
-              <label className="studio-toggle" title="Aplicar a todas las hojas">
+              <label className="studio-toggle" title="Aplicar a todas las hojas interiores">
                 <input
                     type="checkbox"
                     checked={borderless}
@@ -1007,10 +1192,20 @@ export default function App() {
 
             <main className="stage">
               <div className="stage-toolbar">
-                {activePage.isCover ? (
+                {isCoverLike ? (
                     <div className="layout-pills">
-                      <span className="cover-tag">PORTADA DEL PHOTOBOOK</span>
-                      <span className="toolbar-label">Se verá en la tapa frontal del visor 3D</span>
+                  <span className="cover-tag">
+                    {activePage.isCover ? 'PORTADA' : 'CONTRAPORTADA'}
+                  </span>
+                      {COVER_STYLES.map((st) => (
+                          <button
+                              key={st.id}
+                              className={`pill ${activeCoverStyle === st.id ? 'active' : ''}`}
+                              onClick={() => changePageField(activePage.id, 'coverStyle', st.id)}
+                          >
+                            {st.label}
+                          </button>
+                      ))}
                     </div>
                 ) : (
                     <div className="layout-pills">
@@ -1028,7 +1223,47 @@ export default function App() {
                 )}
 
                 <div className="bg-pills">
-                  {!activePage.isCover && (
+                  {isCoverLike ? (
+                      <>
+                        <label className="studio-toggle" style={{ marginRight: 10 }}>
+                          <input
+                              type="checkbox"
+                              checked={Boolean(activePage.borderless)}
+                              onChange={(e) =>
+                                  changePageField(activePage.id, 'borderless', e.target.checked)
+                              }
+                          />
+                          <span>Sin márgenes</span>
+                        </label>
+
+                        <label className="studio-toggle" style={{ marginRight: 10 }}>
+                          <input
+                              type="checkbox"
+                              checked={Boolean(activePage.showCoverText)}
+                              onChange={(e) =>
+                                  changePageField(activePage.id, 'showCoverText', e.target.checked)
+                              }
+                          />
+                          <span>Título y subtítulo</span>
+                        </label>
+
+                        {activePage.showCoverText && (
+                            <select
+                                className="studio-select"
+                                style={{ marginRight: 10, padding: '4px 8px', fontSize: '0.78rem' }}
+                                value={activePage.coverFont || 'default'}
+                                onChange={(e) => changePageField(activePage.id, 'coverFont', e.target.value)}
+                                title="Tipografía de portada"
+                            >
+                              {FONT_FAMILIES.map((f) => (
+                                  <option key={f.id} value={f.id}>
+                                    {f.label}
+                                  </option>
+                              ))}
+                            </select>
+                        )}
+                      </>
+                  ) : (
                       <>
                         <label className="studio-toggle" style={{ marginRight: 10 }}>
                           <input
@@ -1055,7 +1290,7 @@ export default function App() {
                         )}
                       </>
                   )}
-                  <span className="toolbar-label">{activePage.isCover ? 'Tapa:' : 'Papel:'}</span>
+                  <span className="toolbar-label">{isCoverLike ? 'Tapa:' : 'Papel:'}</span>
                   {BG_THEMES.map((theme) => (
                       <button
                           key={theme.id}
@@ -1069,45 +1304,90 @@ export default function App() {
               </div>
 
               <div className="canvas-viewport">
-                {activePage.isCover ? (
-                    /* LIENZO DE PORTADA */
+                {isCoverLike ? (
+                    /* LIENZO DE PORTADA / CONTRAPORTADA */
                     <div
-                        className="sheet cover-sheet"
+                        className={`sheet cover-sheet cover-style-${activeCoverStyle} ${
+                            activePage.borderless ? 'borderless' : ''
+                        }`}
                         style={{
                           aspectRatio: FORMATS[format].ratio,
                           backgroundColor: currentTheme.color,
                           color: currentTheme.text,
                         }}
                     >
-                      <div className="cover-photo-wrap">
+                      <div className={`cover-photo-wrap ${isActiveEditorial2 ? 'editorial-2-photos' : ''}`}>
                         <PhotoSlot
+                            key={`${activePage.id}-0`}
                             slot={activePage.slots[0]}
                             slotIdx={0}
                             selectedPhoto={selectedPhoto}
-                            placeholderText="Arrastra o haz clic para tu foto de portada"
+                            placeholderText={
+                              activePage.isCover
+                                  ? 'Arrastra o haz clic para tu foto de portada'
+                                  : 'Arrastra o haz clic para tu foto de contraportada (opcional)'
+                            }
                             onPlacePhoto={(url) => placePhoto(activePage.id, 0, url)}
                             onClearPhoto={() => clearSlot(activePage.id, 0)}
                             onUpdateSlot={(patch) => updateSlot(activePage.id, 0, patch)}
                         />
+                        {isActiveEditorial2 && (
+                            <PhotoSlot
+                                key={`${activePage.id}-1`}
+                                slot={activePage.slots[1] || null}
+                                slotIdx={1}
+                                selectedPhoto={selectedPhoto}
+                                placeholderText="Segunda foto de portada"
+                                onPlacePhoto={(url) => placePhoto(activePage.id, 1, url)}
+                                onClearPhoto={() => clearSlot(activePage.id, 1)}
+                                onUpdateSlot={(patch) => updateSlot(activePage.id, 1, patch)}
+                            />
+                        )}
                       </div>
-                      <div className="cover-meta-inputs">
-                        <input
-                            type="text"
-                            className="cover-title-input"
-                            style={{ color: currentTheme.text }}
-                            value={activePage.coverTitle}
-                            onChange={(e) => changePageField(activePage.id, 'coverTitle', e.target.value)}
-                            placeholder="TÍTULO DE LA PORTADA"
-                        />
-                        <input
-                            type="text"
-                            className="cover-subtitle-input"
-                            style={{ color: currentTheme.text }}
-                            value={activePage.coverSubtitle}
-                            onChange={(e) => changePageField(activePage.id, 'coverSubtitle', e.target.value)}
-                            placeholder="Subtítulo o fecha (ej. Viaje 2026)"
-                        />
-                      </div>
+
+                      {activePage.showCoverText && (
+                          <div className="cover-meta-inputs">
+                      <textarea
+                          rows={1}
+                          className="cover-title-input"
+                          style={{ color: currentTheme.text, fontFamily: activeCoverFontCss }}
+                          value={activePage.coverTitle}
+                          onChange={(e) => changePageField(activePage.id, 'coverTitle', e.target.value)}
+                          onInput={(e) => {
+                            e.target.style.height = 'auto';
+                            e.target.style.height = `${e.target.scrollHeight}px`;
+                          }}
+                          placeholder={
+                            activePage.isCover ? 'TÍTULO DE LA PORTADA' : 'TÍTULO DE LA CONTRAPORTADA'
+                          }
+                      />
+                            <textarea
+                                rows={1}
+                                className="cover-subtitle-input"
+                                style={{ color: currentTheme.text, fontFamily: activeCoverFontCss }}
+                                value={activePage.coverSubtitle}
+                                onChange={(e) => changePageField(activePage.id, 'coverSubtitle', e.target.value)}
+                                onInput={(e) => {
+                                  e.target.style.height = 'auto';
+                                  e.target.style.height = `${e.target.scrollHeight}px`;
+                                }}
+                                placeholder="Subtítulo o fecha (ej. 07.05.26)"
+                            />
+                          </div>
+                      )}
+
+                      {isActiveEditorial2 && (
+                          <div className="editorial-2-aside">
+                            <div className="editorial-monogram">
+                              <span className="mono-top">{activeM1}</span>
+                              <span className="mono-line" />
+                              <span className="mono-bottom">{activeM2}</span>
+                            </div>
+                            {activePage.showCoverText && activePage.coverSubtitle && (
+                                <span className="editorial-vertical-date">{activePage.coverSubtitle}</span>
+                            )}
+                          </div>
+                      )}
                     </div>
                 ) : (
                     /* LIENZO DE HOJA INTERIOR */
@@ -1161,6 +1441,12 @@ export default function App() {
             <div className="filmstrip-scroll">
               {pages.map((page, index) => {
                 const theme = BG_THEMES.find((t) => t.id === page.bg) || BG_THEMES[0];
+                const label = page.isCover
+                    ? 'Portada'
+                    : page.isBackCover
+                        ? 'Contraportada'
+                        : `Hoja ${index}`;
+
                 return (
                     <div
                         key={page.id}
@@ -1172,7 +1458,7 @@ export default function App() {
                           style={{ backgroundColor: theme.color, aspectRatio: FORMATS[format].ratio }}
                       >
                         <div className={`mini-grid ${LAYOUTS[page.layout].className}`}>
-                          {page.slots.map((s, idx) => (
+                          {page.slots.slice(0, page.isCover || page.isBackCover ? 1 : page.slots.length).map((s, idx) => (
                               <div key={idx} className="mini-slot">
                                 {s && (s.type === 'text' ? <span className="mini-text-icon">T</span> : <img src={s.url} alt="" />)}
                               </div>
@@ -1180,8 +1466,8 @@ export default function App() {
                         </div>
                       </div>
                       <div className="page-thumb-meta">
-                        <span>{page.isCover ? 'Portada' : `Hoja ${index}`}</span>
-                        {!page.isCover && pages.length > 2 && (
+                        <span>{label}</span>
+                        {!page.isCover && !page.isBackCover && interiorCount > 1 && (
                             <button
                                 className="mini-delete"
                                 onClick={(e) => {
@@ -1210,9 +1496,10 @@ export default function App() {
         {preview3D && (
             <Book3DModal
                 coverPage={coverPage}
+                backCoverPage={backCoverPage}
                 albumTitle={albumTitle}
                 format={format}
-                pageCount={pages.length - 1}
+                pageCount={interiorCount}
                 onClose={() => setPreview3D(false)}
             />
         )}
@@ -1232,24 +1519,64 @@ export default function App() {
         <div className="print-area">
           {pages.map((page) => {
             const theme = BG_THEMES.find((t) => t.id === page.bg) || BG_THEMES[0];
-            if (page.isCover) {
+            if (page.isCover || page.isBackCover) {
+              const styleId = page.coverStyle || 'classic';
+              const isEditorial2 = styleId === 'editorial-2';
+              const hasPhoto = page.slots.some(Boolean);
+              const hasText = page.showCoverText && Boolean(page.coverTitle || page.coverSubtitle);
+              const coverFontCss = FONT_FAMILIES.find((f) => f.id === (page.coverFont || 'default'))?.css;
+              const [m1, m2] = getMonogramLetters(page.coverTitle || albumTitle);
+
               return (
                   <div key={page.id} className="print-page-break">
                     <div
-                        className="sheet cover-sheet print-sheet"
+                        className={`sheet cover-sheet print-sheet cover-style-${styleId} ${
+                            page.borderless ? 'borderless' : ''
+                        }`}
                         style={{
                           aspectRatio: FORMATS[format].ratio,
                           backgroundColor: theme.color,
                           color: theme.text,
                         }}
                     >
-                      <div className="cover-photo-wrap">
-                        <PhotoSlot slot={page.slots[0]} slotIdx={0} readOnly />
-                      </div>
-                      <div className="cover-meta-inputs">
-                        <div className="cover-title-input" style={{ color: theme.text }}>{page.coverTitle}</div>
-                        <div className="cover-subtitle-input" style={{ color: theme.text }}>{page.coverSubtitle}</div>
-                      </div>
+                      {(!page.isBackCover || hasPhoto) && (
+                          <div className={`cover-photo-wrap ${isEditorial2 ? 'editorial-2-photos' : ''}`}>
+                            <PhotoSlot slot={page.slots[0]} slotIdx={0} readOnly />
+                            {isEditorial2 && <PhotoSlot slot={page.slots[1] || null} slotIdx={1} readOnly />}
+                          </div>
+                      )}
+                      {hasText && (
+                          <div className="cover-meta-inputs">
+                            {page.coverTitle && (
+                                <div
+                                    className="cover-title-input"
+                                    style={{ color: theme.text, fontFamily: coverFontCss }}
+                                >
+                                  {page.coverTitle}
+                                </div>
+                            )}
+                            {page.coverSubtitle && (
+                                <div
+                                    className="cover-subtitle-input"
+                                    style={{ color: theme.text, fontFamily: coverFontCss }}
+                                >
+                                  {page.coverSubtitle}
+                                </div>
+                            )}
+                          </div>
+                      )}
+                      {isEditorial2 && (
+                          <div className="editorial-2-aside">
+                            <div className="editorial-monogram">
+                              <span className="mono-top">{m1}</span>
+                              <span className="mono-line" />
+                              <span className="mono-bottom">{m2}</span>
+                            </div>
+                            {page.showCoverText && page.coverSubtitle && (
+                                <span className="editorial-vertical-date">{page.coverSubtitle}</span>
+                            )}
+                          </div>
+                      )}
                     </div>
                   </div>
               );

@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Alex+Brush&family=Cormorant+Garamond:wght@400;600&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
 :root {
   --bg-app: #0f1115;
   --bg-panel: #161920;
@@ -806,48 +807,43 @@ body {
 .book-front-inner {
   width: 100%;
   height: 100%;
-  padding: 20px 20px 16px 26px;
+  padding: 12px 14px 10px 20px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 }
 
 .book-cover-photo {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  background: rgba(128, 128, 128, 0.15);
+  position: relative;
 }
 
 .book-cover-photo img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-.book-empty-cover {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  font-size: 0.78rem;
-  opacity: 0.5;
+  display: block;
 }
 
 .book-cover-texts {
   text-align: center;
+  flex-shrink: 0;
+  padding: 2px 0;
 }
 
 .book-cover-texts h3 {
-  font-size: 0.95rem;
+  margin: 0;
+  font-size: 0.72rem;
   letter-spacing: 2px;
-  text-transform: uppercase;
+  line-height: 1.2;
 }
 
 .book-cover-texts p {
-  font-size: 0.7rem;
+  margin: 2px 0 0;
+  font-size: 0.52rem;
   opacity: 0.75;
-  margin-top: 2px;
 }
 
 .book-back {
@@ -860,6 +856,8 @@ body {
   justify-content: center;
   padding-bottom: 18px;
   box-shadow: inset -4px 0 12px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  padding: 0;
 }
 
 .back-colophon {
@@ -1149,6 +1147,367 @@ body {
   display: none;
 }
 
+/* =========================================
+   6 NUEVOS ESTILOS DE PORTADA / CONTRAPORTADA
+   ========================================= */
+.book-cover-photo-item {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.book-cover-photo-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 3. Ventana Vertical (Texto izq, ventana redondeada der) */
+.cover-sheet.cover-style-window-v,
+.book-front-inner.cover-style-window-v {
+  flex-direction: row-reverse;
+  align-items: center;
+  padding: 6% 7%;
+  gap: 6%;
+}
+
+.cover-style-window-v .cover-photo-wrap,
+.cover-style-window-v .book-cover-photo {
+  flex: 0 0 46%;
+  height: 88%;
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(255, 255, 255, 0.4);
+}
+
+.cover-style-window-v .cover-meta-inputs,
+.cover-style-window-v .book-cover-texts {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+}
+
+.cover-style-window-v .cover-title-input {
+  font-family: 'Alex Brush', cursive;
+  font-size: 2.8rem;
+  font-weight: 400;
+  text-transform: none;
+  line-height: 1.05;
+}
+
+/* 4. Cuadrada (Foto cuadrada centrada arriba, texto abajo) */
+.cover-sheet.cover-style-square,
+.book-front-inner.cover-style-square {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 8% 10%;
+  gap: 6%;
+}
+
+.cover-style-square .cover-photo-wrap,
+.cover-style-square .book-cover-photo {
+  width: auto;
+  height: 50%;
+  aspect-ratio: 1 / 1;
+  flex: 0 0 auto;
+}
+
+.cover-style-square .cover-title-input {
+  font-family: 'Alex Brush', cursive;
+  font-size: 2.6rem;
+  font-weight: 400;
+  text-transform: none;
+  line-height: 1.1;
+}
+
+.cover-style-square .cover-subtitle-input {
+  font-size: 0.7rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+/* 5. Panorámica (Ventana horizontal arriba, texto abajo) */
+.cover-sheet.cover-style-window-h,
+.book-front-inner.cover-style-window-h {
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 6% 8% 8%;
+}
+
+.cover-style-window-h .cover-photo-wrap,
+.cover-style-window-h .book-cover-photo {
+  width: 100%;
+  height: 52%;
+  flex: 0 0 auto;
+  border-radius: 5px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.cover-style-window-h .cover-title-input {
+  font-family: 'Alex Brush', cursive;
+  font-size: 2.5rem;
+  font-weight: 400;
+  text-transform: none;
+}
+
+/* 6. Cielo (Foto completa, texto caligráfico arriba) */
+.cover-sheet.cover-style-top-script,
+.book-front-inner.cover-style-top-script {
+  position: relative;
+  padding: 0;
+}
+
+.cover-style-top-script .cover-photo-wrap,
+.cover-style-top-script .book-cover-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cover-style-top-script .cover-meta-inputs,
+.cover-style-top-script .book-cover-texts {
+  position: relative;
+  z-index: 2;
+  width: 100%;
+  padding-top: 7%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.cover-style-top-script .cover-meta-inputs input {
+  pointer-events: auto;
+}
+
+.cover-style-top-script .cover-title-input {
+  font-family: 'Alex Brush', cursive;
+  font-size: 2.8rem;
+  font-weight: 400;
+  text-transform: none;
+  line-height: 1.05;
+}
+
+/* 7. Editorial 2 (2 fotos apiladas izq + texto abajo + monograma der) */
+.cover-sheet.cover-style-editorial-2,
+.book-front-inner.cover-style-editorial-2 {
+  display: grid;
+  grid-template-columns: 64% 36%;
+  grid-template-rows: 1fr auto;
+  padding: 0;
+  gap: 0;
+}
+
+.cover-style-editorial-2 .cover-photo-wrap,
+.cover-style-editorial-2 .book-cover-photo {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  height: 100%;
+  min-height: 0;
+}
+
+.cover-style-editorial-2 .editorial-2-photos > * {
+  flex: 1;
+  min-height: 0;
+}
+
+.cover-style-editorial-2 .cover-meta-inputs,
+.cover-style-editorial-2 .book-cover-texts {
+  grid-column: 1;
+  grid-row: 2;
+  padding: 10px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.cover-style-editorial-2 .cover-title-input {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.cover-style-editorial-2 .cover-subtitle-input {
+  font-family: 'Alex Brush', cursive;
+  font-size: 1.3rem;
+  text-transform: none;
+  opacity: 0.9;
+}
+
+.editorial-2-aside {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16% 10%;
+}
+
+.editorial-monogram {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 3.4rem;
+  font-weight: 400;
+  line-height: 1;
+}
+
+.editorial-monogram .mono-top {
+  transform: translateY(-14px);
+}
+
+.editorial-monogram .mono-bottom {
+  transform: translateY(14px);
+}
+
+.editorial-monogram .mono-line {
+  width: 1px;
+  height: 44px;
+  background: currentColor;
+  opacity: 0.4;
+}
+
+.editorial-vertical-date {
+  writing-mode: vertical-rl;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 0.85rem;
+  letter-spacing: 3px;
+  opacity: 0.8;
+}
+
+/* 8. Revista (Foto completa + Serif elegante arriba a la derecha) */
+.cover-sheet.cover-style-magazine,
+.book-front-inner.cover-style-magazine {
+  position: relative;
+  padding: 0;
+}
+
+.cover-style-magazine .cover-photo-wrap,
+.cover-style-magazine .book-cover-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cover-style-magazine .cover-meta-inputs,
+.cover-style-magazine .book-cover-texts {
+  position: relative;
+  z-index: 2;
+  margin-left: auto;
+  width: 58%;
+  padding: 8% 7% 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  pointer-events: none;
+}
+
+.cover-style-magazine .cover-meta-inputs input {
+  pointer-events: auto;
+}
+
+.cover-style-magazine .cover-title-input {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 2.3rem;
+  font-weight: 400;
+  letter-spacing: 6px;
+  text-transform: uppercase;
+  line-height: 1.15;
+}
+
+.cover-style-magazine .cover-subtitle-input {
+  font-size: 0.68rem;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+}
+
+/* Escalado compacto para Vista 3D 360° y Flipbook */
+.book-front-inner .editorial-monogram,
+.flip-sheet .editorial-monogram {
+  font-size: 2rem;
+}
+
+.book-front-inner .editorial-monogram .mono-line,
+.flip-sheet .editorial-monogram .mono-line {
+  height: 26px;
+}
+
+.book-front-inner.cover-style-window-v .book-cover-texts h3,
+.book-front-inner.cover-style-square .book-cover-texts h3,
+.book-front-inner.cover-style-window-h .book-cover-texts h3,
+.book-front-inner.cover-style-top-script .book-cover-texts h3,
+.flip-sheet.cover-style-window-v .cover-title-input,
+.flip-sheet.cover-style-square .cover-title-input,
+.flip-sheet.cover-style-window-h .cover-title-input,
+.flip-sheet.cover-style-top-script .cover-title-input {
+  font-family: 'Alex Brush', cursive;
+  font-size: 1.55rem;
+  font-weight: 400;
+  text-transform: none;
+}
+
+.book-front-inner.cover-style-magazine .book-cover-texts h3,
+.flip-sheet.cover-style-magazine .cover-title-input {
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-size: 1.35rem;
+  letter-spacing: 3px;
+}
+
+/* Selector de tipografía dentro de slots de texto */
+.slot-font-select {
+  background: rgba(15, 17, 21, 0.85);
+  color: #f3f4f6;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  outline: none;
+}
+
+/* Soporte de saltos de línea (Enter) en títulos y subtítulos */
+textarea.cover-title-input,
+textarea.cover-subtitle-input {
+  resize: none;
+  overflow: hidden;
+  field-sizing: content;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cover-title-input,
+.cover-subtitle-input,
+.book-cover-texts h3,
+.book-cover-texts p {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cover-style-overlay .cover-meta-inputs textarea,
+.cover-style-top-script .cover-meta-inputs textarea,
+.cover-style-magazine .cover-meta-inputs textarea {
+  pointer-events: auto;
+}
+
 @media print {
   @page {
     size: landscape;
@@ -1224,4 +1583,125 @@ body {
   .print-sheet .text-style-minimal {
     font-size: 1.2rem;
   }
+}
+
+.print-sheet .slot,
+.print-sheet .slot img {
+  box-shadow: none !important;
+  transition: none !important;
+  will-change: auto !important;
+}
+
+/* =========================================
+   ESTILOS DE PORTADA (DIVIDIDA, SUPERPUESTA Y SIN BORDES)
+   ========================================= */
+.cover-sheet.borderless {
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+.book-front-inner.borderless {
+  padding: 0 !important;
+  gap: 0 !important;
+}
+
+/* 1. Estilo Dividida (Texto a la izquierda, Foto a la derecha) */
+.cover-sheet.cover-style-split,
+.book-front-inner.cover-style-split {
+  flex-direction: row-reverse;
+  align-items: stretch;
+  gap: 0;
+}
+
+.cover-style-split .cover-photo-wrap,
+.cover-style-split .book-cover-photo {
+  flex: 0 0 56%;
+  height: 100%;
+}
+
+.cover-style-split .cover-meta-inputs,
+.cover-style-split .book-cover-texts {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 16px;
+  gap: 8px;
+}
+
+/* 2. Estilo Superpuesta (Foto completa + Texto encima a la izquierda) */
+.cover-sheet.cover-style-overlay,
+.book-front-inner.cover-style-overlay {
+  position: relative;
+  padding: 0;
+}
+
+.cover-style-overlay .cover-photo-wrap,
+.cover-style-overlay .book-cover-photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.cover-style-overlay .cover-meta-inputs,
+.cover-style-overlay .book-cover-texts {
+  position: relative;
+  z-index: 2;
+  width: 50%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+  gap: 8px;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.48) 0%, rgba(0, 0, 0, 0) 100%);
+}
+
+.cover-style-overlay .cover-meta-inputs input {
+  pointer-events: auto;
+  color: #ffffff !important;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
+}
+
+.cover-style-overlay .cover-title-input,
+.cover-style-overlay .cover-subtitle-input,
+.cover-style-overlay .book-cover-texts h3,
+.cover-style-overlay .book-cover-texts p {
+  color: #ffffff !important;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.65);
+}
+
+/* Tipografía caligráfica editorial para Dividida y Superpuesta */
+.cover-style-split .cover-title-input,
+.cover-style-overlay .cover-title-input {
+  font-family: 'Alex Brush', cursive;
+  font-size: 2.7rem;
+  font-weight: 400;
+  letter-spacing: 1px;
+  text-transform: none;
+  line-height: 1.1;
+}
+
+.cover-style-split .cover-subtitle-input,
+.cover-style-overlay .cover-subtitle-input {
+  font-size: 0.7rem;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+
+/* Escalado proporcional en Vista 3D 360° y Flipbook */
+.book-front-inner.cover-style-split .book-cover-texts h3,
+.book-front-inner.cover-style-overlay .book-cover-texts h3,
+.flip-sheet.cover-style-split .cover-title-input,
+.flip-sheet.cover-style-overlay .cover-title-input {
+  font-family: 'Alex Brush', cursive;
+  font-size: 1.65rem;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+  text-transform: none;
+  line-height: 1.1;
 }

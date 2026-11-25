@@ -28,23 +28,44 @@ const FILTERS = [
   { id: 'warm', label: 'Cálido', css: 'sepia(25%) saturate(1.15)' },
 ];
 
+const TEXT_STYLES = [
+  { id: 'quote', label: 'Cita', className: 'text-style-quote' },
+  { id: 'title', label: 'Título', className: 'text-style-title' },
+  { id: 'story', label: 'Historia', className: 'text-style-story' },
+  { id: 'minimal', label: 'Minimal', className: 'text-style-minimal' },
+];
+
 function PhotoSlot({
                      slot,
                      slotIdx,
                      selectedPhoto,
                      onPlacePhoto,
+                     onPlaceText,
                      onClearPhoto,
                      onUpdateSlot,
                      readOnly = false,
                      placeholderText,
                    }) {
   const slotRef = useRef(null);
+  const editorRef = useRef(null);
   const dragRef = useRef(null);
   const [isDragOver, setIsDragOver] = useState(false);
 
+  const isText = slot?.type === 'text';
+  const isPhoto = Boolean(slot && !isText);
+
+  // Sincroniza el HTML inicial del bloque de texto sin mover el cursor al escribir
+  useEffect(() => {
+    if (isText && !readOnly && editorRef.current) {
+      if (editorRef.current.innerHTML !== (slot.content || '')) {
+        editorRef.current.innerHTML = slot.content || '';
+      }
+    }
+  }, [isText, readOnly, slotIdx]);
+
   useEffect(() => {
     const el = slotRef.current;
-    if (!el || !slot || readOnly) return;
+    if (!el || !isPhoto || readOnly) return;
 
     const handleWheel = (e) => {
       e.preventDefault();
@@ -55,10 +76,10 @@ function PhotoSlot({
 
     el.addEventListener('wheel', handleWheel, { passive: false });
     return () => el.removeEventListener('wheel', handleWheel);
-  }, [slot, onUpdateSlot, readOnly]);
+  }, [slot, isPhoto, onUpdateSlot, readOnly]);
 
   const handlePointerDown = (e) => {
-    if (readOnly || !slot || e.target.closest('button')) return;
+    if (readOnly || !isPhoto || e.target.closest('button')) return;
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
     const rect = e.currentTarget.getBoundingClientRect();
@@ -112,20 +133,49 @@ function PhotoSlot({
     onUpdateSlot({ filter: nextFilter });
   };
 
+  const cycleTextStyle = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const currentIdx = TEXT_STYLES.findIndex((t) => t.id === (slot.style || 'quote'));
+    const nextStyle = TEXT_STYLES[(currentIdx + 1) % TEXT_STYLES.length].id;
+    onUpdateSlot({ style: nextStyle });
+  };
+
+  // Aplica negrita o cursiva a la selección actual (o a todo el texto si no hay selección)
+  const applyTextFormat = (e, command) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const editor = editorRef.current;
+    if (!editor) return;
+    editor.focus();
+
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !editor.contains(sel.anchorNode)) {
+      const range = document.createRange();
+      range.selectNodeContents(editor);
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+
+    document.execCommand(command, false, null);
+    onUpdateSlot({ content: editor.innerHTML });
+  };
+
   const activeFilterObj = FILTERS.find((f) => f.id === (slot?.filter || 'none')) || FILTERS[0];
+  const activeTextStyle = TEXT_STYLES.find((t) => t.id === (slot?.style || 'quote')) || TEXT_STYLES[0];
 
   return (
       <div
           ref={slotRef}
-          className={`slot ${slot ? 'filled' : ''} ${isDragOver ? 'drag-over' : ''} ${
-              readOnly ? 'readonly' : ''
-          }`}
+          className={`slot ${isPhoto ? 'filled' : ''} ${isText ? 'text-slot' : ''} ${
+              isDragOver ? 'drag-over' : ''
+          } ${readOnly ? 'readonly' : ''}`}
           onClick={() => !readOnly && !slot && selectedPhoto && onPlacePhoto(selectedPhoto)}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          onDoubleClick={() => !readOnly && slot && onUpdateSlot({ x: 50, y: 50, scale: 1 })}
+          onDoubleClick={() => !readOnly && isPhoto && onUpdateSlot({ x: 50, y: 50, scale: 1 })}
           onDragOver={(e) => {
             if (readOnly) return;
             e.preventDefault();
@@ -134,7 +184,7 @@ function PhotoSlot({
           onDragLeave={() => setIsDragOver(false)}
           onDrop={handleDrop}
       >
-        {slot ? (
+        {isPhoto ? (
             <>
               <img
                   src={slot.url}
@@ -170,13 +220,82 @@ function PhotoSlot({
                   </div>
               )}
             </>
+        ) : isText ? (
+            <>
+              {readOnly ? (
+                  <div
+                      className={`slot-text-display ${activeTextStyle.className}`}
+                      dangerouslySetInnerHTML={{ __html: slot.content || '' }}
+                  />
+              ) : (
+                  <div
+                      ref={editorRef}
+                      contentEditable
+                      suppressContentEditableWarning
+                      className={`slot-rich-editor ${activeTextStyle.className}`}
+                      data-placeholder="Escribe tu texto aquí..."
+                      onInput={(e) => onUpdateSlot({ content: e.currentTarget.innerHTML })}
+                  />
+              )}
+              {!readOnly && (
+                  <div className="slot-toolbar no-print">
+                    <button
+                        className="slot-action-btn"
+                        onMouseDown={(e) => applyTextFormat(e, 'bold')}
+                        title="Negrita (a la selección o a todo)"
+                    >
+                      <strong>B</strong>
+                    </button>
+                    <button
+                        className="slot-action-btn"
+                        onMouseDown={(e) => applyTextFormat(e, 'italic')}
+                        title="Cursiva (a la selección o a todo)"
+                    >
+                      <em>I</em>
+                    </button>
+                    <button
+                        className="slot-action-btn"
+                        onMouseDown={cycleTextStyle}
+                        title="Cambiar tipografía (Cita / Título / Historia / Minimal)"
+                    >
+                      {activeTextStyle.label}
+                    </button>
+                    <button
+                        className="slot-action-btn danger"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onClearPhoto();
+                        }}
+                        title="Quitar texto"
+                    >
+                      ×
+                    </button>
+                  </div>
+              )}
+            </>
         ) : (
             !readOnly && (
-                <span className="slot-placeholder no-print">
-            {isDragOver
-                ? 'Suelta aquí'
-                : placeholderText || (selectedPhoto ? 'Clic o arrastra una foto' : 'Arrastra una foto aquí')}
-          </span>
+                <>
+            <span className="slot-placeholder no-print">
+              {isDragOver
+                  ? 'Suelta aquí'
+                  : placeholderText || (selectedPhoto ? 'Clic o arrastra una foto' : 'Arrastra una foto aquí')}
+            </span>
+                  {onPlaceText && (
+                      <div className="slot-toolbar no-print">
+                        <button
+                            className="slot-action-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onPlaceText();
+                            }}
+                            title="Usar este espacio para escribir texto"
+                        >
+                          + Texto
+                        </button>
+                      </div>
+                  )}
+                </>
             )
         )}
       </div>
@@ -437,9 +556,9 @@ function Flipbook3DModal({ pages, albumTitle, format, borderless, gapSize, onClo
                 <PhotoSlot key={idx} slot={slot} slotIdx={idx} readOnly />
             ))}
           </div>
-          {!borderless && page.caption && (
+          {!borderless && page.showCaption && (
               <div className="page-caption readonly-caption" style={{ fontSize: '0.72rem' }}>
-                {page.caption}
+                {page.caption || '\u00A0'}
               </div>
           )}
         </div>
@@ -491,8 +610,8 @@ function Flipbook3DModal({ pages, albumTitle, format, borderless, gapSize, onClo
             <div
                 className="flipbook-book"
                 style={{
-                  '--leaf-w': `${Math.round(fmt.bookW * 1.15)}px`,
-                  '--leaf-h': `${Math.round(fmt.bookH * 1.15)}px`,
+                  '--leaf-w': `${Math.round(fmt.bookW * 1.35)}px`,
+                  '--leaf-h': `${Math.round(fmt.bookH * 1.35)}px`,
                   transform: `rotateX(10deg) translateX(${shiftX})`,
                 }}
             >
@@ -561,7 +680,7 @@ export default function App() {
       coverSubtitle: 'Colección 2026',
       bg: 'dark',
     },
-    { id: 1, isCover: false, layout: 2, slots: [null, null], caption: '', bg: 'white' },
+    { id: 1, isCover: false, layout: 2, slots: [null, null], caption: '', showCaption: false, bg: 'white' },
   ]);
   const [activePageId, setActivePageId] = useState('cover');
 
@@ -571,7 +690,7 @@ export default function App() {
 
   const usedUrls = useMemo(() => {
     const set = new Set();
-    pages.forEach((p) => p.slots.forEach((s) => s && set.add(s.url)));
+    pages.forEach((p) => p.slots.forEach((s) => s && s.url && set.add(s.url)));
     return set;
   }, [pages]);
 
@@ -601,6 +720,22 @@ export default function App() {
     }
   };
 
+  const deletePhoto = (e, photoToDelete) => {
+    e.stopPropagation();
+    setPhotos((prev) => prev.filter((p) => p.id !== photoToDelete.id));
+    if (selectedPhoto === photoToDelete.url) {
+      setSelectedPhoto(null);
+    }
+    // También la quita de cualquier hoja donde ya estuviera colocada
+    setPages((prev) =>
+        prev.map((page) => ({
+          ...page,
+          slots: page.slots.map((s) => (s && s.url === photoToDelete.url ? null : s)),
+        }))
+    );
+    URL.revokeObjectURL(photoToDelete.url);
+  };
+
   const addPage = (layout = 2) => {
     const nextId = Date.now() + Math.random();
     const slotCount = LAYOUTS[layout].slots;
@@ -612,6 +747,7 @@ export default function App() {
         layout,
         slots: Array(slotCount).fill(null),
         caption: '',
+        showCaption: false,
         bg: 'white',
       },
     ]);
@@ -650,6 +786,17 @@ export default function App() {
           if (page.id !== pageId) return page;
           const updatedSlots = [...page.slots];
           updatedSlots[slotIndex] = { url, x: 50, y: 50, scale: 1, filter: 'none' };
+          return { ...page, slots: updatedSlots };
+        })
+    );
+  };
+
+  const placeText = (pageId, slotIndex) => {
+    setPages((prev) =>
+        prev.map((page) => {
+          if (page.id !== pageId) return page;
+          const updatedSlots = [...page.slots];
+          updatedSlots[slotIndex] = { type: 'text', content: '', style: 'quote' };
           return { ...page, slots: updatedSlots };
         })
     );
@@ -712,6 +859,7 @@ export default function App() {
           filter: 'none',
         })),
         caption: '',
+        showCaption: false,
         bg: 'white',
       });
       i += layout;
@@ -856,6 +1004,13 @@ export default function App() {
                               onClick={() => setSelectedPhoto(photo.url)}
                           >
                             <img src={photo.url} alt={photo.name} />
+                            <button
+                                className="delete-thumb-btn"
+                                onClick={(e) => deletePhoto(e, photo)}
+                                title="Eliminar foto de la galería"
+                            >
+                              ×
+                            </button>
                             {isUsed && <span className="used-badge">✓</span>}
                           </div>
                       );
@@ -887,6 +1042,18 @@ export default function App() {
                 )}
 
                 <div className="bg-pills">
+                  {!activePage.isCover && !borderless && (
+                      <label className="studio-toggle" style={{ marginRight: 10 }}>
+                        <input
+                            type="checkbox"
+                            checked={Boolean(activePage.showCaption)}
+                            onChange={(e) =>
+                                changePageField(activePage.id, 'showCaption', e.target.checked)
+                            }
+                        />
+                        <span>Pie de página</span>
+                      </label>
+                  )}
                   <span className="toolbar-label">{activePage.isCover ? 'Tapa:' : 'Papel:'}</span>
                   {BG_THEMES.map((theme) => (
                       <button
@@ -962,20 +1129,21 @@ export default function App() {
                                 slotIdx={slotIdx}
                                 selectedPhoto={selectedPhoto}
                                 onPlacePhoto={(url) => placePhoto(activePage.id, slotIdx, url)}
+                                onPlaceText={() => placeText(activePage.id, slotIdx)}   // <--- SOLO AGREGA ESTA LÍNEA AQUÍ
                                 onClearPhoto={() => clearSlot(activePage.id, slotIdx)}
                                 onUpdateSlot={(patch) => updateSlot(activePage.id, slotIdx, patch)}
                             />
                         ))}
                       </div>
 
-                      {!borderless && (
+                      {!borderless && activePage.showCaption && (
                           <input
                               type="text"
                               className="page-caption"
                               style={{ color: currentTheme.text }}
                               value={activePage.caption}
                               onChange={(e) => changePageField(activePage.id, 'caption', e.target.value)}
-                              placeholder="Añadir pie de página opcional..."
+                              placeholder="Añadir pie de página..."
                           />
                       )}
                     </div>
@@ -1069,7 +1237,11 @@ export default function App() {
                   <div key={page.id} className="print-page-break">
                     <div
                         className="sheet cover-sheet print-sheet"
-                        style={{ backgroundColor: theme.color, color: theme.text }}
+                        style={{
+                          aspectRatio: FORMATS[format].ratio,
+                          backgroundColor: theme.color,
+                          color: theme.text,
+                        }}
                     >
                       <div className="cover-photo-wrap">
                         <PhotoSlot slot={page.slots[0]} slotIdx={0} readOnly />
@@ -1096,8 +1268,8 @@ export default function App() {
                           <PhotoSlot key={idx} slot={slot} slotIdx={idx} readOnly />
                       ))}
                     </div>
-                    {!borderless && page.caption && (
-                        <div className="page-caption readonly-caption">{page.caption}</div>
+                    {!borderless && (
+                        <div className="page-caption readonly-caption">{page.caption || '\u00A0'}</div>
                     )}
                   </div>
                 </div>
